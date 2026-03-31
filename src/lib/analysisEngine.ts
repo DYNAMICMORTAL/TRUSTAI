@@ -822,7 +822,8 @@ export async function analyzeContentAsync(input: AnalysisInput): Promise<Analysi
         console.log(`[FRONTEND -> BACKEND] Initiating POST /analyze...`);
         console.log(`[FRONTEND -> BACKEND] Payload:`, { input_type: type, content: content.substring(0, 50) + '...', screenshot_scenario: screenshotScenario });
         
-        const response = await fetch("http://127.0.0.1:8000/analyze", {
+        // Pointing to your LIVE Vercel Backend
+        const response = await fetch("https://trustai-19rk.vercel.app/analyze", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
