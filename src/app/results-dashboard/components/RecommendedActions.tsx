@@ -95,15 +95,17 @@ export default function RecommendedActions() {
                                 <p className="text-xs text-text-secondary leading-relaxed">{action.description}</p>
                             </div>
                             {action.cta && (
-                                <a
-                                    href={action.cta}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="mt-auto inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-cyan-300 transition-colors duration-150"
-                                >
-                                    <ExternalLink className="w-3.5 h-3.5" />
-                                    {action.ctaLabel}
-                                </a>
+                                <div className="mt-4 pt-3 border-t border-border-subtle/50">
+                                    <a
+                                        href={action.cta}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary hover:bg-cyan-600 active:scale-[0.98] text-white font-semibold text-sm transition-all duration-200 shadow-md shadow-cyan-500/20"
+                                    >
+                                        <ExternalLink className="w-4 h-4" />
+                                        {action.ctaLabel || 'Take Action'}
+                                    </a>
+                                </div>
                             )}
                         </div>
                     );

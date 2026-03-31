@@ -85,7 +85,10 @@ Analyzed by TrustLayer AI`;
                 </button>
 
                 <button
-                    onClick={() => toast?.info('PDF export coming soon')}
+                    onClick={() => {
+                        toast.success('Preparing PDF Document...');
+                        setTimeout(() => window.print(), 100);
+                    }}
                     className="flex items-center gap-3 px-4 py-3 rounded-xl bg-black/[0.03] border border-black/8 hover:bg-black/[0.06] hover:border-black/12 active:scale-[0.98] transition-all duration-150 text-sm text-text-primary hover:text-text-primary"
                 >
                     <Download className="w-4 h-4 text-text-secondary flex-shrink-0" />
