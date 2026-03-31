@@ -20,17 +20,45 @@ def analyze_with_gemini(content: str, input_type: str, pre_score: int, pre_flags
     - Detected flags: {', '.join(pre_flags) if pre_flags else 'None'}
     
     Provide your analysis as a strictly valid JSON object. Do not include markdown formatting like ```json.
-    Keep the explanation and recommendations brief to avoid rate limit/token issues.
     
     Required JSON structure:
     {{
       "risk_score": <int 0-100>,
       "trust_level": "<Safe | Suspicious | High Risk>",
       "scam_type": "<Type of scam, e.g., 'Phishing', 'Fake Job / Internship Scam', 'None'>",
-      "verdict": "<1-2 sentence summary of what this is and why it's risky>",
-      "red_flags": ["<flag1>", "<flag2>"],
-      "explanation": "<Detailed explanation of the manipulation tactics or safe patterns used>",
-      "recommendations": ["<rec1>", "<rec2>"],
+      "verdict": "<A rich, compelling 3-4 sentence comprehensive summary of the risk and tactics.>",
+      "red_flags": [
+        {{
+          "id": "flag-1",
+          "severity": "<critical | high | medium | low>",
+          "tactic": "<Name of manipulation tactic>",
+          "detail": "<Very detailed explanation of how this tactic works against the user>",
+          "trigger": "<Exact text snippet that triggered this flag>",
+          "category": "<e.g., Fear Manipulation, Urgency, Authority Spoofing>"
+        }}
+        // Provide at least 3 to 5 detailed red flags
+      ],
+      "explanation": ["<First paragraph exploring the psychology of the scam>", "<Second paragraph analyzing the technical details>", "<Third paragraph on the expected consequences...>"],
+      "recommendations": [
+        {{
+          "id": "action-1",
+          "priority": "<immediate | recommended | urgent-if-paid>",
+          "iconName": "<Lucide Icon Name: ShieldX, ShieldCheck, Flag, Lock, Eye, Phone, ExternalLink>",
+          "iconBg": "<Tailwind class, e.g., bg-red-500/10 border-red-500/20>",
+          "iconColor": "<Tailwind class, e.g., text-red-400 or text-primary>",
+          "title": "<Title of action>",
+          "description": "<Detailed, highly actionable specific recommendation steps>",
+          "cta": "<URL or null>",
+          "ctaLabel": "<Label for URL or null>"
+        }}
+        // Provide at least 3 to 4 detailed recommendations
+      ],
+      "highlighted_phrases": [
+        {{
+          "phrase": "<Exact substring from content to highlight>",
+          "color": "<e.g., bg-red-500/20 text-red-300 rounded px-0.5>"
+        }}
+      ],
       "confidence_breakdown": {{
         "manipulation_level": <int 0-100>,
         "financial_risk": <int 0-100>,
@@ -46,7 +74,6 @@ def analyze_with_gemini(content: str, input_type: str, pre_score: int, pre_flags
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
-            "maxOutputTokens": 800, # Rate limit safeguard / speed improvement
             "temperature": 0.2
         }
     }
@@ -56,7 +83,7 @@ def analyze_with_gemini(content: str, input_type: str, pre_score: int, pre_flags
     print(f"[GEMINI_SERVICE] Sending payload to {url.split('?')[0]}")
     
     try:
-        response = requests.post(url, headers=headers, json=payload, timeout=15)
+        response = requests.post(url, headers=headers, json=payload, timeout=120)
         print(f"[GEMINI_SERVICE] Received raw response with Status Code: {response.status_code}")
         
         response.raise_for_status()
@@ -101,13 +128,31 @@ def get_fallback_result(content: str, pre_score: int, pre_flags: list) -> dict:
         "trust_level": trust_level,
         "scam_type": scam_type,
         "verdict": f"Analyzed using fallback engine. Rule-based risk score is {risk_score}/100.",
-        "red_flags": pre_flags if pre_flags else ["No explicit flags detected"],
-        "explanation": "This content was analyzed using a rule-based fallback system due to AI service unavailability.",
+        "red_flags": [
+            {
+                "id": f"fallback-flag-{i}",
+                "severity": "high",
+                "tactic": flag,
+                "detail": f"This content triggered the '{flag}' rule during our static analysis.",
+                "trigger": "Detected text pattern",
+                "category": "Algorithm Alert"
+            } for i, flag in enumerate(pre_flags)
+        ] if pre_flags else [],
+        "explanation": ["This content was analyzed using a rule-based fallback system due to AI service unavailability.", "Please exercise caution."],
         "recommendations": [
-            "Verify the sender's identity independently.",
-            "Do not share personal or financial information.",
-            "Avoid clicking suspicious links."
+            {
+                "id": "fallback-act-1",
+                "priority": "recommended",
+                "iconName": "Eye",
+                "iconBg": "bg-blue-500/10 border-blue-500/20",
+                "iconColor": "text-blue-400",
+                "title": "Verify Independently",
+                "description": "Double check the sender's identity through official channels.",
+                "cta": None,
+                "ctaLabel": None
+            }
         ],
+        "highlighted_phrases": [],
         "confidence_breakdown": {
             "manipulation_level": min(100, pre_score + 10),
             "financial_risk": 90 if "Money Request" in pre_flags else 10,

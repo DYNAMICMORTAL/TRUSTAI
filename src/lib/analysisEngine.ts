@@ -841,10 +841,16 @@ export async function analyzeContentAsync(input: AnalysisInput): Promise<Analysi
         backendResult = await response.json();
         console.log(`[FRONTEND <- BACKEND] Success! Payload received:`, backendResult);
         
+        const isFallback = backendResult.verdict?.includes('fallback engine');
+        if (isFallback) {
+            console.log("%c🟠 [ANALYSIS SOURCE] Result generated via BACKEND FALLBACK ENGINE (Gemini API took too long or failed rate limit).", "color: orange; font-weight: bold;");
+        } else {
+            console.log("%c🟢 [ANALYSIS SOURCE] Result generated dynamically via GEMINI AI API!", "color: lightgreen; font-weight: bold;");
+        }
+        
     } catch (e) {
-        console.error("[FRONTEND ERROR] Fallback triggered! Backend failed because:", e);
-        console.log("[FRONTEND] Falling back to local simulated response...");
-        // Fallback to existing mock logic if backend fails
+        console.error("[FRONTEND ERROR] Backend connection failed:", e);
+        console.log("%c🔴 [ANALYSIS SOURCE] Result generated via LOCAL BROWSER FALLBACK (Backend server unreachable).", "color: red; font-weight: bold;");
         return analyzeContent(input);
     }
     
@@ -854,17 +860,24 @@ export async function analyzeContentAsync(input: AnalysisInput): Promise<Analysi
     const riskLevel = getRiskLevel(riskScore);
     const confidence = backendResult.confidence_breakdown.trust_confidence || 85;
     
-    // Generate rich UI flags locally based on the returned scamType/content
-    let redFlags = generateRedFlags(content, scamType, type);
+    // Pass through exact arrays generated dynamically by Gemini backend!
+    let redFlags = backendResult.red_flags && backendResult.red_flags.length > 0
+        ? backendResult.red_flags 
+        : generateRedFlags(content, scamType, type);
     
-    // Format explanation block nicely
-    const aiExplanation = backendResult.explanation 
-        ? backendResult.explanation.split('. ').filter(Boolean).map((s: string) => s + (s.endsWith('.') ? '' : '.')) 
-        : generateExplanation(content, scamType, riskScore);
+    // Format explanation block directly from API array
+    const aiExplanation = backendResult.explanation && Array.isArray(backendResult.explanation)
+        ? backendResult.explanation
+        : backendResult.explanation 
+            ? backendResult.explanation.split('. ').filter(Boolean).map((s: string) => s + (s.endsWith('.') ? '' : '.')) 
+            : generateExplanation(content, scamType, riskScore);
     
     const verdictStatement = backendResult.verdict || generateVerdictStatement(scamType, riskScore);
-    const recommendedActions = generateActions(scamType, riskScore);
     
+    const recommendedActions = backendResult.recommendations && backendResult.recommendations.length > 0
+        ? backendResult.recommendations
+        : generateActions(scamType, riskScore);
+        
     const confidenceSignals: ConfidenceSignal[] = [
         { label: 'Manipulation Level', score: backendResult.confidence_breakdown.manipulation_level, color: 'bg-red-500' },
         { label: 'Financial Risk', score: backendResult.confidence_breakdown.financial_risk, color: 'bg-red-400' },
@@ -873,7 +886,9 @@ export async function analyzeContentAsync(input: AnalysisInput): Promise<Analysi
         { label: 'Overall Confidence', score: backendResult.confidence_breakdown.trust_confidence, color: 'bg-cyan-500' },
     ];
     
-    const highlightedPhrases = generateHighlightedPhrases(content, scamType);
+    const highlightedPhrases = backendResult.highlighted_phrases && backendResult.highlighted_phrases.length > 0
+        ? backendResult.highlighted_phrases
+        : generateHighlightedPhrases(content, scamType);
     
     const now = new Date();
     const analyzedAt = now.toLocaleString('en-IN', {

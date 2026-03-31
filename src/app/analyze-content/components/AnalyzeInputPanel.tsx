@@ -136,6 +136,8 @@ export default function AnalyzeInputPanel({ initialTab, initialContent }: Analyz
     const [analysisPromise, setAnalysisPromise] = useState<Promise<any> | null>(null);
     const [currentContent, setCurrentContent] = useState<string>('');
 
+    const [isAnalysisReady, setIsAnalysisReady] = useState(false);
+
     const handleAnalyze = () => {
         if (!inputValue.trim() && !uploadedFile) {
             toast.error('Please provide text, a URL, or an image to analyze');
@@ -153,6 +155,7 @@ export default function AnalyzeInputPanel({ initialTab, initialContent }: Analyz
             : inputValue;
 
         setCurrentContent(content);
+        setIsAnalysisReady(false);
         
         // Import dynamically or explicitly if added to analysisEngine
         import('@/lib/analysisEngine').then(({ analyzeContentAsync }) => {
@@ -162,6 +165,7 @@ export default function AnalyzeInputPanel({ initialTab, initialContent }: Analyz
                 screenshotScenario: selectedScreenshotScenario,
             });
             setAnalysisPromise(p);
+            p.finally(() => setIsAnalysisReady(true));
         });
 
         setIsAnalyzing(true);
@@ -195,7 +199,7 @@ export default function AnalyzeInputPanel({ initialTab, initialContent }: Analyz
     if (isAnalyzing) {
         return (
             <div className="card-surface p-8 animate-fade-in border-cyan-500/30">
-                <AnalysisLoader onComplete={handleAnalysisComplete} />
+                <AnalysisLoader isReady={isAnalysisReady} onComplete={handleAnalysisComplete} />
             </div>
         );
     }

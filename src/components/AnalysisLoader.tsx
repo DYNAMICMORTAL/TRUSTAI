@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 
 interface AnalysisLoaderProps {
     onComplete: () => void;
+    isReady?: boolean;
 }
 
 const stages = [
@@ -11,10 +12,10 @@ const stages = [
     { id: 2, label: 'Detecting urgency and manipulation tactics...', sublabel: 'Checking for psychological pressure patterns', duration: 800 },
     { id: 3, label: 'Checking identity and trust signals...', sublabel: 'Verifying sender legitimacy indicators', duration: 750 },
     { id: 4, label: 'Analyzing financial and phishing risk...', sublabel: 'Cross-referencing known fraud patterns', duration: 800 },
-    { id: 5, label: 'Generating your Trust Report...', sublabel: 'Compiling findings and recommendations', duration: 600 },
+    { id: 5, label: 'Generating your Trust Report...', sublabel: 'Waiting for Gemini AI API to respond...', duration: 2000 },
 ];
 
-export default function AnalysisLoader({ onComplete }: AnalysisLoaderProps) {
+export default function AnalysisLoader({ onComplete, isReady = false }: AnalysisLoaderProps) {
     const [currentStage, setCurrentStage] = useState(0);
     const [completedStages, setCompletedStages] = useState<number[]>([]);
     const [progress, setProgress] = useState(0);
@@ -22,10 +23,27 @@ export default function AnalysisLoader({ onComplete }: AnalysisLoaderProps) {
     useEffect(() => {
         let stageIndex = 0;
         let totalElapsed = 0;
+        let isCancelled = false;
         const totalDuration = stages.reduce((sum, s) => sum + s.duration, 0);
 
         const runStage = () => {
+            if (isCancelled) return;
+            
             if (stageIndex >= stages.length) {
+                // If we reach the end of the fake stages but API isn't ready, we hold at 95%
+                if (!isReady) {
+                    setTimeout(runStage, 500); // Polling loop checking for `isReady`
+                    return;
+                }
+                
+                setProgress(100);
+                setTimeout(onComplete, 300);
+                return;
+            }
+
+            // If API is already ready AND we're somewhat into the sequence, fast forward!
+            if (isReady && stageIndex > 1) {
+                stageIndex = stages.length; // Skip to end
                 setProgress(100);
                 setTimeout(onComplete, 300);
                 return;
@@ -33,6 +51,13 @@ export default function AnalysisLoader({ onComplete }: AnalysisLoaderProps) {
 
             setCurrentStage(stageIndex);
             const stage = stages[stageIndex];
+            
+            // Hold progress strictly around 95% if we are at the last stage and waiting
+            if (stageIndex === stages.length - 1 && !isReady) {
+                setProgress(95);
+                setTimeout(runStage, 500);
+                return;
+            }
 
             // Animate progress for this stage
             const startProgress = (totalElapsed / totalDuration) * 100;
@@ -42,13 +67,26 @@ export default function AnalysisLoader({ onComplete }: AnalysisLoaderProps) {
             let step = 0;
 
             const progressInterval = setInterval(() => {
+                if (isCancelled) {
+                    clearInterval(progressInterval);
+                    return;
+                }
                 step++;
+                // If API is ready during animation, accelerate
+                if (isReady && stageIndex >= 2) {
+                    clearInterval(progressInterval);
+                    setProgress(100);
+                    runStage();
+                    return;
+                }
+                
                 const p = startProgress + ((endProgress - startProgress) * step) / steps;
-                setProgress(Math.min(p, 99));
+                setProgress(Math.min(p, 90)); // Soft cap at 90% via interval math so it never reaches 100% too early
                 if (step >= steps) clearInterval(progressInterval);
             }, stepDuration);
 
             setTimeout(() => {
+                if (isCancelled) return;
                 setCompletedStages(prev => [...prev, stageIndex]);
                 totalElapsed += stage.duration;
                 stageIndex++;
@@ -57,7 +95,11 @@ export default function AnalysisLoader({ onComplete }: AnalysisLoaderProps) {
         };
 
         runStage();
-    }, [onComplete]);
+        
+        return () => {
+            isCancelled = true;
+        }
+    }, [onComplete, isReady]);
 
     return (
         <div className="relative w-full overflow-hidden flex flex-col items-center justify-center p-8">

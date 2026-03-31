@@ -11,16 +11,15 @@ def normalize_trust_report(report: dict, pre_flags: list) -> dict:
     else:
         report["trust_level"] = "Safe"
         
-    # Merge rules flags without creating duplicates
-    existing_flags = report.get("red_flags", [])
-    merged_flags = list(set(existing_flags + pre_flags))
-    report["red_flags"] = merged_flags
+    # We will just let the LLM define the red flags, but we ensure it's a list
+    report.setdefault("red_flags", [])
     
     # Ensure keys exist as strings
     report.setdefault("scam_type", "Unknown")
     report.setdefault("verdict", "Analysis completed.")
-    report.setdefault("explanation", "No detailed explanation available.")
-    report.setdefault("recommendations", ["Exercise standard caution online."])
+    report.setdefault("explanation", ["No detailed explanation available."])
+    report.setdefault("recommendations", [])
+    report.setdefault("highlighted_phrases", [])
     
     # Clean confidence breakdown
     cb = report.get("confidence_breakdown", {})
