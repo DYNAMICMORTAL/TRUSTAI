@@ -133,23 +133,15 @@ export default function AnalyzeInputPanel({ initialTab, initialContent }: Analyz
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
+    const [analysisPromise, setAnalysisPromise] = useState<Promise<any> | null>(null);
+    const [currentContent, setCurrentContent] = useState<string>('');
+
     const handleAnalyze = () => {
         if (!inputValue.trim() && !uploadedFile) {
             toast.error('Please provide text, a URL, or an image to analyze');
             return;
         }
-        setIsAnalyzing(true);
-    };
 
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleAnalyze();
-        }
-    };
-
-    const handleAnalysisComplete = () => {
-        // Auto-detect type
         let type: TabType = 'text';
         if (uploadedFile) type = 'screenshot';
         else if (/^(https?:\/\/|[\w-]+\.\w+(\/|$))/.test(inputValue.trim()) && !inputValue.trim().includes(' ')) {
@@ -160,14 +152,44 @@ export default function AnalyzeInputPanel({ initialTab, initialContent }: Analyz
             ? (selectedScreenshotScenario ? (demoScenarios.find(s => s.id === selectedScreenshotScenario)?.label || 'payment screenshot') : 'Uploaded Screenshot')
             : inputValue;
 
-        const result = analyzeContent({
-            type,
-            content,
-            screenshotScenario: selectedScreenshotScenario,
+        setCurrentContent(content);
+        
+        // Import dynamically or explicitly if added to analysisEngine
+        import('@/lib/analysisEngine').then(({ analyzeContentAsync }) => {
+            const p = analyzeContentAsync({
+                type,
+                content,
+                screenshotScenario: selectedScreenshotScenario,
+            });
+            setAnalysisPromise(p);
         });
 
-        saveAnalysisResult(result, content);
-        router.push('/results-dashboard');
+        setIsAnalyzing(true);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            handleAnalyze();
+        }
+    };
+
+    const handleAnalysisComplete = async () => {
+        if (!analysisPromise) {
+            setIsAnalyzing(false);
+            return;
+        }
+
+        try {
+            const result = await analysisPromise;
+            const { saveAnalysisResult } = await import('@/lib/analysisEngine');
+            saveAnalysisResult(result, currentContent);
+            router.push('/results-dashboard');
+        } catch (e) {
+            console.error(e);
+            toast.error('Analysis failed to complete.');
+            setIsAnalyzing(false);
+        }
     };
 
     if (isAnalyzing) {

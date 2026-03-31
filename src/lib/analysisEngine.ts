@@ -813,6 +813,95 @@ export function analyzeContent(input: AnalysisInput): AnalysisResult {
     };
 }
 
+export async function analyzeContentAsync(input: AnalysisInput): Promise<AnalysisResult> {
+    const { type, content, screenshotScenario } = input;
+    
+    // Call backend API
+    let backendResult;
+    try {
+        console.log(`[FRONTEND -> BACKEND] Initiating POST /analyze...`);
+        console.log(`[FRONTEND -> BACKEND] Payload:`, { input_type: type, content: content.substring(0, 50) + '...', screenshot_scenario: screenshotScenario });
+        
+        const response = await fetch("http://127.0.0.1:8000/analyze", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                input_type: type,
+                content: content,
+                screenshot_scenario: screenshotScenario
+            })
+        });
+        
+        if (!response.ok) {
+            console.error(`[BACKEND ERROR] Response received with status code: ${response.status}`);
+            throw new Error(`API error: ${response.status}`);
+        }
+        backendResult = await response.json();
+        console.log(`[FRONTEND <- BACKEND] Success! Payload received:`, backendResult);
+        
+    } catch (e) {
+        console.error("[FRONTEND ERROR] Fallback triggered! Backend failed because:", e);
+        console.log("[FRONTEND] Falling back to local simulated response...");
+        // Fallback to existing mock logic if backend fails
+        return analyzeContent(input);
+    }
+    
+    // Process backend result into precise frontend schema expectations
+    const riskScore = backendResult.risk_score;
+    const scamType = backendResult.scam_type as ScamType;
+    const riskLevel = getRiskLevel(riskScore);
+    const confidence = backendResult.confidence_breakdown.trust_confidence || 85;
+    
+    // Generate rich UI flags locally based on the returned scamType/content
+    let redFlags = generateRedFlags(content, scamType, type);
+    
+    // Format explanation block nicely
+    const aiExplanation = backendResult.explanation 
+        ? backendResult.explanation.split('. ').filter(Boolean).map((s: string) => s + (s.endsWith('.') ? '' : '.')) 
+        : generateExplanation(content, scamType, riskScore);
+    
+    const verdictStatement = backendResult.verdict || generateVerdictStatement(scamType, riskScore);
+    const recommendedActions = generateActions(scamType, riskScore);
+    
+    const confidenceSignals: ConfidenceSignal[] = [
+        { label: 'Manipulation Level', score: backendResult.confidence_breakdown.manipulation_level, color: 'bg-red-500' },
+        { label: 'Financial Risk', score: backendResult.confidence_breakdown.financial_risk, color: 'bg-red-400' },
+        { label: 'Impersonation Risk', score: backendResult.confidence_breakdown.impersonation_risk, color: 'bg-orange-500' },
+        { label: 'Action Urgency', score: backendResult.confidence_breakdown.urgency_level, color: 'bg-orange-400' },
+        { label: 'Overall Confidence', score: backendResult.confidence_breakdown.trust_confidence, color: 'bg-cyan-500' },
+    ];
+    
+    const highlightedPhrases = generateHighlightedPhrases(content, scamType);
+    
+    const now = new Date();
+    const analyzedAt = now.toLocaleString('en-IN', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata',
+    }) + ' IST';
+    
+    const inputPreview = type === 'url' ? content : content.length > 200 ? content.slice(0, 200) + '...' : content;
+    
+    return {
+        riskScore,
+        riskLevel,
+        scamType,
+        scamSubType: backendResult.scam_type, 
+        confidence,
+        verdict: verdictStatement,
+        redFlags,
+        aiExplanation,
+        verdictStatement,
+        recommendedActions,
+        confidenceSignals,
+        inputType: type,
+        inputPreview,
+        analyzedAt,
+        highlightedPhrases
+    };
+}
+
 export function saveAnalysisResult(result: AnalysisResult, rawContent: string): void {
     if (typeof window === 'undefined') return;
     try {

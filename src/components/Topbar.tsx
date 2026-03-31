@@ -44,7 +44,7 @@ export default function Topbar() {
                     </Link>
                     <Link
                         href="/analyze-content"
-                        className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500 text-text-primary text-sm font-semibold hover:bg-cyan-400 active:scale-95 transition-all duration-150"
+                        className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-cyan-500 text-white text-sm font-semibold hover:bg-cyan-400 active:scale-95 transition-all duration-150"
                     >
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.955 11.955 0 01.75 12c0 6.627 5.373 12 12 12s12-5.373 12-12c0-2.929-1.048-5.614-2.773-7.697" />
